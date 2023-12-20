@@ -26,7 +26,7 @@ pub fn part_two(input: &str) -> Option<Seed> {
         .reduce(sum_maps)
         .unwrap()
         .iter()
-        .map(|(start, _, shift)| start.clone())
+        .map(|(start, _, _)| start.clone())
         .min()
 }
 
@@ -43,8 +43,6 @@ fn sum_maps(mut source: Map, mut target: Map) -> Map {
     source.sort_by_key(|s| s.0);
     target.sort_by_key(|s| s.0);
 
-    println!("{:?}", source);
-    println!("{:?}", target);
     let mut sum: Map = vec![];
     for &(start, end, shift) in source.iter() {
         let mut s_start = start;
@@ -56,47 +54,35 @@ fn sum_maps(mut source: Map, mut target: Map) -> Map {
 
         while s_start <= s_end {
             if s_start >= target.iter().last().unwrap().1 {
-                println!("after...");
                 sum.push((s_start, s_end, shift));
                 break;
             }
             for &(t_start, t_end, t_shift) in target.iter() {
-                println!("{} {}", s_start, s_end);
                 if s_end >= t_start && s_start < t_start {
-                    println!("first hit");
                     sum.push((s_start, t_start - 1, shift));
                     s_start = t_start;
                 } else if s_start >= t_start && s_end <= t_end {
-                    println!("inside");
                     sum.push((s_start, s_end, shift + t_shift));
                     s_start = s_end + 1;
                     break;
                 } else if s_start <= t_start && s_end >= t_end {
-                    println!("third hit");
                     sum.push((t_start, t_end, shift + t_shift));
                     s_start = t_end + 1;
                 } else if s_start >= t_start && s_start <= t_end {
-                    println!("lower hit");
                     sum.push((s_start, t_end, shift + t_shift));
                     s_start = t_end + 1;
                 } else if s_end < t_start {
                     sum.push((s_start, s_end, shift));
                     s_start = s_end + 1;
                     break;
-                } else {
-                    println!("{:?}", source);
-                    println!("{:?}", target);
-                    println!("no hit");
                 }
             }
         }
     }
-    println!("{:?}\n=======\n", sum);
     let sum = sum
         .iter()
         .map(|(start, end, shift)| (start + shift, end + shift, 0))
         .collect();
-    println!("{:?}\n=======\n", sum);
     sum
 }
 

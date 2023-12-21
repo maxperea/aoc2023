@@ -47,11 +47,6 @@ fn sum_maps(mut source: Map, mut target: Map) -> Map {
     for &(start, end, shift) in source.iter() {
         let mut s_start = start;
         let s_end = end;
-        if s_end <= target.iter().next().unwrap().0 {
-            sum.push((s_start, s_end, shift));
-            continue;
-        }
-
         while s_start <= s_end {
             if s_start >= target.iter().last().unwrap().1 {
                 sum.push((s_start, s_end, shift));
@@ -79,11 +74,9 @@ fn sum_maps(mut source: Map, mut target: Map) -> Map {
             }
         }
     }
-    let sum = sum
-        .iter()
+    sum.iter()
         .map(|(start, end, shift)| (start + shift, end + shift, 0))
-        .collect();
-    sum
+        .collect()
 }
 
 fn parse(input: &str) -> (Vec<Map>, Vec<Seed>) {

@@ -12,7 +12,6 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let mut game = parse(input);
     game.sort();
-    println!("{:?}", game);
     game.iter()
         .enumerate()
         .fold(0, |acc, (i, hand)| acc + (i as u32 + 1) * hand.bid)
@@ -59,10 +58,6 @@ impl PartialOrd for Hand {
         let mut self_vec: Vec<i32> = self_counts.into_iter().filter(|x| x > &0).collect();
         let mut other_vec: Vec<i32> = other_counts.into_iter().filter(|x| x > &0).collect();
 
-        println!("=========");
-        println!("{:?}\n{:?}", self.cards, self_vec);
-        println!("{:?}\n{:?}", other.cards, other_vec);
-
         let self_max = self_vec.iter().max().unwrap().clone();
         let other_max = other_vec.iter().max().unwrap().clone();
 
@@ -75,13 +70,10 @@ impl PartialOrd for Hand {
         }
 
         if self_vec.iter().max() != other_vec.iter().max() {
-            println!("Diff max");
             return self_vec.iter().max().cmp(&other_vec.iter().max()).into();
         } else if self_vec.len() != other_vec.len() {
-            println!("Diff len");
             return other_vec.len().cmp(&self_vec.len()).into();
         } else {
-            println!("Equal len and max");
             return self.cards.cmp(&other.cards).into();
         }
     }

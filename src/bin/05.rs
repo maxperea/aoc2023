@@ -14,6 +14,15 @@ pub fn part_one(input: &str) -> Option<Seed> {
         .min()
 }
 
+fn apply_map(seed: Seed, map: &[MapEntry]) -> Seed {
+    for &(start, end, shift) in map {
+        if seed >= start && seed <= end {
+            return seed + shift;
+        }
+    }
+    seed
+}
+
 pub fn part_two(input: &str) -> Option<Seed> {
     let (maps, seeds) = parse(input);
     let init_map: Map = seeds
@@ -26,21 +35,11 @@ pub fn part_two(input: &str) -> Option<Seed> {
         .reduce(sum_maps)
         .unwrap()
         .iter()
-        .map(|(start, _, _)| start.clone())
+        .map(|(start, _, _)| *start)
         .min()
 }
 
-fn apply_map(seed: Seed, map: &[MapEntry]) -> Seed {
-    for &(start, end, shift) in map {
-        if seed >= start && seed <= end {
-            return seed + shift;
-        }
-    }
-    seed
-}
-
-fn sum_maps(mut source: Map, mut target: Map) -> Map {
-    source.sort_by_key(|s| s.0);
+fn sum_maps(source: Map, mut target: Map) -> Map {
     target.sort_by_key(|s| s.0);
 
     let mut sum: Map = vec![];

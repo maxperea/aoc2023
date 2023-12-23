@@ -2,20 +2,24 @@ use std::collections::{HashSet, VecDeque};
 
 advent_of_code::solution!(10);
 
-const NW: (i32, i32) = (-1, -1);
-const NE: (i32, i32) = (1, -1);
+type Direction = (i32, i32);
 
-const N: (i32, i32) = (0, -1);
-const E: (i32, i32) = (1, 0);
-const W: (i32, i32) = (-1, 0);
-const S: (i32, i32) = (0, 1);
+const NW: Direction = (-1, -1);
+const NE: Direction = (1, -1);
 
-const SW: (i32, i32) = (-1, 1);
-const SE: (i32, i32) = (1, 1);
+const N: Direction = (0, -1);
+const E: Direction = (1, 0);
+const W: Direction = (-1, 0);
+const S: Direction = (0, 1);
+
+const SW: Direction = (-1, 1);
+const SE: Direction = (1, 1);
+
+const START: (usize, usize, Direction) = (73, 83, S); // Cheat and read manually
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Pipe {
-    Start,
+    // Start,
     Empty,
     Vertical,
     Horizontal,
@@ -25,125 +29,101 @@ enum Pipe {
     BottomRight,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum Direction {
-    East,
-    South,
-    West,
-    North,
+pub fn part_one(input: &str) -> Option<usize> {
+    get_loop(&parse(input)).len().div_ceil(2).into()
 }
 
-pub fn part_one(input: &str) -> Option<usize> {
-    let map = parse(input);
-    let pipe_loop = get_loop(&map);
-    Some(pipe_loop.len().div_ceil(2))
-}
-fn update_pos(x: usize, y: usize, dx: i32, dy: i32) -> (usize, usize) {
-    ((x as i32 + dx) as usize, (y as i32 + dy) as usize)
-}
 pub fn part_two(input: &str) -> Option<usize> {
-    use Direction::*;
     use Pipe::*;
-    // We are going clockwise
     let map = parse(input);
     let pipe_loop = get_loop(&map);
     let mut inside_tiles = HashSet::new();
-    let (mut x, mut y, mut direction) = find_start(&map);
-    let start = (x, y);
+    let (mut x, mut y, mut direction) = START;
+    let start_pos = (x, y);
     loop {
         let pipe = map[y][x];
 
-        let dirs = match (pipe, direction) {
-            (Horizontal, East) => [SW, S, SE],
-            (Horizontal, West) => [NW, N, NE],
-            (Vertical, North) => [NE, E, SE],
-            (Vertical, South) => [NW, W, SW],
+        if let Some(dirs) = match (pipe, direction) {
+            (Horizontal, E) => Some([SW, S, SE]),
+            (Horizontal, W) => Some([NW, N, NE]),
+            (Vertical, N) => Some([NE, E, SE]),
+            (Vertical, S) => Some([NW, W, SW]),
+            (TopLeft, W) => Some([W, NW, N]),
+            (TopRight, N) => Some([E, NE, N]),
+            (BottomLeft, S) => Some([W, SW, S]),
+            (BottomRight, E) => Some([E, SE, S]),
+            _ => None,
+        } {
+            let positions: Vec<_> = dirs
+                .iter()
+                .map(|&dir| update_pos(x, y, dir))
+                .filter(|pos| !pipe_loop.contains(pos))
+                .collect();
 
-            (TopLeft, West) => [W, NW, N],
-            (TopRight, North) => [E, NE, N],
-            (BottomLeft, South) => [W, SW, S],
-            (BottomRight, East) => [E, SE, S],
-
-            (TopLeft, North) => [SE, SE, SE],
-            (TopRight, East) => [SW, SW, SW],
-            (BottomLeft, West) => [NE, NE, NE],
-            (BottomRight, South) => [NW, NW, NW],
-            _ => panic!(),
-        };
-
-        let positions: Vec<_> = dirs
-            .iter()
-            .map(|(dx, dy)| update_pos(x, y, *dx, *dy))
-            .filter(|ele| !pipe_loop.contains(ele))
-            .collect();
-
-        let connected_tiles = get_connected_tiles(&pipe_loop, positions);
-        for tile in connected_tiles {
-            inside_tiles.insert(tile);
+            inside_tiles.extend(get_connected_tiles(&pipe_loop, positions));
         }
 
         (x, y, direction) = advance(x, y, map[y][x], direction);
 
-        if (x, y) == start {
+        if (x, y) == start_pos {
             break;
         }
     }
-    for y in 0..142 {
-        for x in 0..142 {
-            if pipe_loop.contains(&(x, y)) {
-                print!("{}", pipe_to_char(map[y][x]));
-            } else if inside_tiles.contains(&(x, y)) {
-                print!("o");
-            } else {
-                print!(" ");
-            }
-        }
-        println!();
-    }
 
     inside_tiles.len().into()
+}
+
+fn update_pos(x: usize, y: usize, (dx, dy): Direction) -> (usize, usize) {
+    ((x as i32 + dx) as usize, (y as i32 + dy) as usize)
 }
 
 fn get_connected_tiles(
     pipe_loop: &HashSet<(usize, usize)>,
     positions: Vec<(usize, usize)>,
 ) -> HashSet<(usize, usize)> {
-    let mut queue = VecDeque::new();
-    let mut connected_tiles = HashSet::new();
-    for ele in positions {
-        queue.push_back(ele);
-        connected_tiles.insert(ele);
-    }
+    let mut connected_tiles: HashSet<_> = positions.iter().cloned().collect();
+    let mut queue: VecDeque<_> = positions.into_iter().collect();
 
     while let Some((x, y)) = queue.pop_front() {
-        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-            let pos = ((x as i32 + dx) as usize, (y as i32 + dy) as usize);
-            if pipe_loop.contains(&pos) || connected_tiles.contains(&pos) {
+        for dir in [N, W, S, E].iter().map(|&dir| update_pos(x, y, dir)) {
+            if pipe_loop.contains(&dir) || !connected_tiles.insert(dir) {
                 continue;
-            } else {
-                connected_tiles.insert(pos);
-                queue.push_back(pos);
             }
+            queue.push_back(dir);
         }
     }
     connected_tiles
 }
 
-fn find_start(_map: &Vec<Vec<Pipe>>) -> (usize, usize, Direction) {
-    (73, 83, Direction::South)
-}
-
 fn get_loop(map: &Vec<Vec<Pipe>>) -> HashSet<(usize, usize)> {
     let mut pipe_loop = HashSet::new();
-    let (mut x, mut y, mut direction) = find_start(&map);
-    loop {
+    let (mut x, mut y, mut direction) = START;
+    while pipe_loop.insert((x, y)) {
         (x, y, direction) = advance(x, y, map[y][x], direction);
-        if pipe_loop.contains(&(x, y)) {
-            break;
-        }
-        pipe_loop.insert((x, y));
     }
     pipe_loop
+}
+
+fn advance(x: usize, y: usize, pipe: Pipe, direction: Direction) -> (usize, usize, Direction) {
+    use Pipe::*;
+    let new_dir = match (pipe, direction) {
+        (Vertical, N) => direction,
+        (Vertical, S) => direction,
+        (Horizontal, W) => direction,
+        (Horizontal, E) => direction,
+        (TopLeft, N) => E,
+        (TopLeft, W) => S,
+        (TopRight, N) => W,
+        (TopRight, E) => S,
+        (BottomRight, S) => W,
+        (BottomRight, E) => N,
+        (BottomLeft, S) => E,
+        (BottomLeft, W) => N,
+        _ => panic!(),
+    };
+
+    let (x, y) = update_pos(x, y, new_dir);
+    (x, y, new_dir)
 }
 
 fn parse(input: &str) -> Vec<Vec<Pipe>> {
@@ -153,59 +133,18 @@ fn parse(input: &str) -> Vec<Vec<Pipe>> {
         .collect()
 }
 
-fn advance(x: usize, y: usize, pipe: Pipe, direction: Direction) -> (usize, usize, Direction) {
-    use Direction::*;
-    use Pipe::*;
-    let new_dir = match (pipe, direction) {
-        (Vertical, North) => direction,
-        (Vertical, South) => direction,
-        (Horizontal, West) => direction,
-        (Horizontal, East) => direction,
-        (TopLeft, North) => East,
-        (TopLeft, West) => South,
-        (TopRight, North) => West,
-        (TopRight, East) => South,
-        (BottomRight, South) => West,
-        (BottomRight, East) => North,
-        (BottomLeft, South) => East,
-        (BottomLeft, West) => North,
-        _ => panic!(),
-    };
-
-    let (dx, dy) = match new_dir {
-        North => (0, -1),
-        East => (1, 0),
-        South => (0, 1),
-        West => (-1, 0),
-    };
-    let (x, y) = ((x as i32 + dx) as usize, (y as i32 + dy) as usize);
-    (x, y, new_dir)
-}
-
 fn char_to_pipe(cell: char) -> Pipe {
+    use Pipe::*;
     match cell {
-        'S' => Pipe::Start,
-        '|' => Pipe::Vertical,
-        '-' => Pipe::Horizontal,
-        'F' => Pipe::TopLeft,
-        '7' => Pipe::TopRight,
-        'L' => Pipe::BottomLeft,
-        'J' => Pipe::BottomRight,
-        '.' => Pipe::Empty,
+        'S' => TopRight, // Let's replace with actual piece
+        '|' => Vertical,
+        '-' => Horizontal,
+        'F' => TopLeft,
+        '7' => TopRight,
+        'L' => BottomLeft,
+        'J' => BottomRight,
+        '.' => Empty,
         _ => panic!(),
-    }
-}
-
-fn pipe_to_char(pipe: Pipe) -> char {
-    match pipe {
-        Pipe::Start => 'S',
-        Pipe::Vertical => '|',
-        Pipe::Horizontal => '-',
-        Pipe::TopLeft => 'F',
-        Pipe::TopRight => '7',
-        Pipe::BottomLeft => 'L',
-        Pipe::BottomRight => 'J',
-        Pipe::Empty => '.',
     }
 }
 

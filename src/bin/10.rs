@@ -2,6 +2,17 @@ use std::collections::{HashSet, VecDeque};
 
 advent_of_code::solution!(10);
 
+const NW: (i32, i32) = (-1, -1);
+const NE: (i32, i32) = (1, -1);
+
+const N: (i32, i32) = (0, -1);
+const E: (i32, i32) = (1, 0);
+const W: (i32, i32) = (-1, 0);
+const S: (i32, i32) = (0, 1);
+
+const SW: (i32, i32) = (-1, 1);
+const SE: (i32, i32) = (1, 1);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Pipe {
     Start,
@@ -27,6 +38,9 @@ pub fn part_one(input: &str) -> Option<usize> {
     let pipe_loop = get_loop(&map);
     Some(pipe_loop.len().div_ceil(2))
 }
+fn update_pos(x: usize, y: usize, dx: i32, dy: i32) -> (usize, usize) {
+    ((x as i32 + dx) as usize, (y as i32 + dy) as usize)
+}
 pub fn part_two(input: &str) -> Option<usize> {
     use Direction::*;
     use Pipe::*;
@@ -35,55 +49,49 @@ pub fn part_two(input: &str) -> Option<usize> {
     let pipe_loop = get_loop(&map);
     let mut inside_tiles = HashSet::new();
     let (mut x, mut y, mut direction) = find_start(&map);
-    while map[y][x] != Pipe::Start {
+    let start = (x, y);
+    loop {
         let pipe = map[y][x];
 
-        // Get right side coords
-        if let Some((rs_dx, rs_dy)) = match (direction, pipe) {
-            // Straight
-            (East, Horizontal) => Some((0, 1)),
-            (West, Horizontal) => Some((0, -1)),
-            (South, Vertical) => Some((-1, 0)),
-            (North, Vertical) => Some((1, 0)),
-            // Turns, first right side
-            (East, BottomRight) => Some((0, 1)),
-            (West, TopLeft) => Some((0, -1)),
-            (South, BottomLeft) => Some((-1, 0)),
-            (North, TopRight) => Some((1, 0)),
-            // Turns, second right side
-            (East, TopRight) => Some((0, 1)),
-            (West, BottomLeft) => Some((0, -1)),
-            (South, BottomRight) => Some((-1, 0)),
-            (North, TopLeft) => Some((1, 0)),
-            // Turns, outside
-            (West, TopLeft) => Some((-1, -1)),
-            (North, TopRight) => Some((1, -1)),
-            (East, BottomRight) => Some((1, 1)),
-            (South, BottomLeft) => Some((-1, 1)),
-            // Turns, inside
-            (North, TopLeft) => Some((1, 1)),
-            (East, TopRight) => Some((-1, 1)),
-            (South, BottomRight) => Some((-1, -1)),
-            (West, BottomLeft) => Some((1, -1)),
-            _ => None,
-        } {
-            let right_pos = ((x as i32 + rs_dx) as usize, (y as i32 + rs_dy) as usize);
+        let dirs = match (pipe, direction) {
+            (Horizontal, East) => [SW, S, SE],
+            (Horizontal, West) => [NW, N, NE],
+            (Vertical, North) => [NE, E, SE],
+            (Vertical, South) => [NW, W, SW],
 
-            // Check that tile is not part of loop
-            if !pipe_loop.contains(&right_pos) {
-                let connected_tiles = get_connected_tiles(&pipe_loop, right_pos);
-                for tile in connected_tiles {
-                    inside_tiles.insert(tile);
-                }
-            }
+            (TopLeft, West) => [W, NW, N],
+            (TopRight, North) => [E, NE, N],
+            (BottomLeft, South) => [W, SW, S],
+            (BottomRight, East) => [E, SE, S],
+
+            (TopLeft, North) => [SE, SE, SE],
+            (TopRight, East) => [SW, SW, SW],
+            (BottomLeft, West) => [NE, NE, NE],
+            (BottomRight, South) => [NW, NW, NW],
+            _ => panic!(),
+        };
+
+        let positions: Vec<_> = dirs
+            .iter()
+            .map(|(dx, dy)| update_pos(x, y, *dx, *dy))
+            .filter(|ele| !pipe_loop.contains(ele))
+            .collect();
+
+        let connected_tiles = get_connected_tiles(&pipe_loop, positions);
+        for tile in connected_tiles {
+            inside_tiles.insert(tile);
         }
 
         (x, y, direction) = advance(x, y, map[y][x], direction);
+
+        if (x, y) == start {
+            break;
+        }
     }
     for y in 0..142 {
         for x in 0..142 {
             if pipe_loop.contains(&(x, y)) {
-                print!("X");
+                print!("{}", pipe_to_char(map[y][x]));
             } else if inside_tiles.contains(&(x, y)) {
                 print!("o");
             } else {
@@ -92,17 +100,20 @@ pub fn part_two(input: &str) -> Option<usize> {
         }
         println!();
     }
+
     inside_tiles.len().into()
 }
 
 fn get_connected_tiles(
     pipe_loop: &HashSet<(usize, usize)>,
-    right_pos: (usize, usize),
+    positions: Vec<(usize, usize)>,
 ) -> HashSet<(usize, usize)> {
     let mut queue = VecDeque::new();
-    queue.push_back(right_pos);
     let mut connected_tiles = HashSet::new();
-    connected_tiles.insert(right_pos);
+    for ele in positions {
+        queue.push_back(ele);
+        connected_tiles.insert(ele);
+    }
 
     while let Some((x, y)) = queue.pop_front() {
         for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
@@ -125,9 +136,11 @@ fn find_start(_map: &Vec<Vec<Pipe>>) -> (usize, usize, Direction) {
 fn get_loop(map: &Vec<Vec<Pipe>>) -> HashSet<(usize, usize)> {
     let mut pipe_loop = HashSet::new();
     let (mut x, mut y, mut direction) = find_start(&map);
-    pipe_loop.insert((x, y));
-    while map[y][x] != Pipe::Start {
+    loop {
         (x, y, direction) = advance(x, y, map[y][x], direction);
+        if pipe_loop.contains(&(x, y)) {
+            break;
+        }
         pipe_loop.insert((x, y));
     }
     pipe_loop
@@ -180,6 +193,19 @@ fn char_to_pipe(cell: char) -> Pipe {
         'J' => Pipe::BottomRight,
         '.' => Pipe::Empty,
         _ => panic!(),
+    }
+}
+
+fn pipe_to_char(pipe: Pipe) -> char {
+    match pipe {
+        Pipe::Start => 'S',
+        Pipe::Vertical => '|',
+        Pipe::Horizontal => '-',
+        Pipe::TopLeft => 'F',
+        Pipe::TopRight => '7',
+        Pipe::BottomLeft => 'L',
+        Pipe::BottomRight => 'J',
+        Pipe::Empty => '.',
     }
 }
 

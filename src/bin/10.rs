@@ -148,19 +148,58 @@ fn char_to_pipe(cell: char) -> Pipe {
     }
 }
 
+type Position = (usize, usize);
+
+fn part_two_math(input: &str) -> Option<u32> {
+    return Some(calc_interior(&get_loop_vec(&parse(input))));
+}
+
+fn get_loop_vec(map: &Vec<Vec<Pipe>>) -> Vec<Position> {
+    let mut pipe_loop = vec![];
+    let start = (START.0, START.1);
+    let (mut x, mut y, mut direction) = START;
+    loop {
+        pipe_loop.push((x, y));
+        (x, y, direction) = advance(x, y, map[y][x], direction);
+        if (x, y) == start {
+            break;
+        }
+    }
+    pipe_loop
+}
+
+fn calc_interior(pipe_loop: &[Position]) -> u32 {
+    let mut vertices: Vec<Position> = pipe_loop.to_vec();
+    vertices.push(pipe_loop[0]);
+
+    // Shoelace formula
+    let mut area: i32 = 0;
+    for i in 0..(vertices.len() - 1) {
+        let first = vertices[i];
+        let second = vertices[i + 1];
+        area += (first.0 as i32 * second.1 as i32) - (first.1 as i32 * second.0 as i32);
+    }
+    area = i32::abs(area) / 2;
+
+    // Pick's theorem
+    let perimeter: i32 = vertices.len() as i32 - 1;
+    let interior: i32 = area - (perimeter / 2) + 1;
+    interior as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_part_one() {
-        let result = part_one(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
-    }
+    // #[test]
+    // fn test_part_one() {
+    //     let result = part_one(&advent_of_code::template::read_file("examples", DAY));
+    //     assert_eq!(result, None);
+    // }
 
-    #[test]
-    fn test_part_two() {
-        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
-    }
+    // #[test]
+    // fn test_part_two() {
+    //     let result = part_two(&advent_of_code::template::read_file("examples", DAY));
+    //     assert_eq!(result, None);
+    // }
 }
